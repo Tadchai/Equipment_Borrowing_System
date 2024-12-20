@@ -1,17 +1,21 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Threading.Tasks;
 
-namespace api.Models
+namespace api.Models;
+
+public partial class ItemClassification
 {
-    public class ItemClassification
-    {
-        [Key]
-        public int ItemClassificationId { get; set; }
-        public string Name { get; set; }
-        public int ItemCategoryId { get; set; } // Foreign Key
-    }
+    public int ItemClassificationId { get; set; }
+
+    public byte[] Name { get; set; } = null!;
+
+    public int ItemCategoryId { get; set; }
+
+    public DateTime CreateDate { get; set; }
+
+    public DateTime? UpdateDate { get; set; }
+
+    public virtual ItemCategory ItemCategory { get; set; } = null!;
+
+    public virtual ICollection<ItemInstance> ItemInstances { get; set; } = new List<ItemInstance>();
 }

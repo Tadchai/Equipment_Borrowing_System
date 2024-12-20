@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using api.Data;
 using api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,8 +12,8 @@ namespace api.Controllers
     [ApiController]
     public class ItemController : ControllerBase
     {
-        private readonly ApplicationDBContext _context;
-        public ItemController(ApplicationDBContext context)
+        private readonly EquipmentBorrowingContext _context;
+        public ItemController(EquipmentBorrowingContext context)
         {
             _context = context;
         }

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using api.Data;
 using api.Models;
 using api.ViewModels;
 using Microsoft.AspNetCore.Mvc;
@@ -14,8 +13,8 @@ namespace api.Controllers
     [ApiController]
     public class EmployeeController : ControllerBase
     {
-        private readonly ApplicationDBContext _context;
-        public EmployeeController(ApplicationDBContext context)
+        private readonly EquipmentBorrowingContext _context;
+        public EmployeeController(EquipmentBorrowingContext context)
         {
             _context = context;
         }
@@ -43,16 +42,16 @@ namespace api.Controllers
             return Ok(data);
         }
 
-        [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateEmployeeRequest input)
-        {
-            var Models = new Employee();
-            Models.Name = input.FullName;
+        // [HttpPost]
+        // public async Task<IActionResult> Create([FromBody] CreateEmployeeRequest input)
+        // {
+        //     var Models = new Employee();
+        //     Models.Name = input.FullName;
 
-            await _context.Employees.AddAsync(Models);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetById), new { id = input.EmployeeId }, input);
-        }//
+        //     await _context.Employees.AddAsync(Models);
+        //     await _context.SaveChangesAsync();
+        //     return CreatedAtAction(nameof(GetById), new { id = input.EmployeeId }, input);
+        // }//
 
         [HttpPut]
         [Route("{id}")]

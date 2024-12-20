@@ -1,16 +1,25 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Threading.Tasks;
 
-namespace api.Models
+namespace api.Models;
+
+public partial class ItemInstance
 {
-    public class ItemInstance
-    {
-        public int ItemInstanceId { get; set; }
-        public string AssetId { get; set; }
-        public int? RequisitionId { get; set; } // Foreign Key
-        public int ItemClassificationId { get; set; } // Foreign Key
-    }
+    public int ItemInstanceId { get; set; }
+
+    public string AssetId { get; set; } = null!;
+
+    public int? RequisitionId { get; set; }
+
+    public int ItemClassificationId { get; set; }
+
+    public DateTime CreateDate { get; set; }
+
+    public DateTime? UpdateDate { get; set; }
+
+    public virtual ItemClassification ItemClassification { get; set; } = null!;
+
+    public virtual RequisitionedItem? Requisition { get; set; }
+
+    public virtual ICollection<RequisitionedItem> RequisitionedItems { get; set; } = new List<RequisitionedItem>();
 }

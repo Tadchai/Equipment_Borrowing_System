@@ -1,15 +1,17 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Threading.Tasks;
 
-namespace api.Models
+namespace api.Models;
+
+public partial class Employee
 {
-    public class Employee
-    {
-        [Key]
-        public int EmployeeId { get; set; }
-        public string Name { get; set; }
-    }
+    public int EmployeeId { get; set; }
+
+    public string Name { get; set; } = null!;
+
+    public DateTime CreateDate { get; set; }
+
+    public DateTime? UpdateDate { get; set; }
+
+    public virtual ICollection<RequisitionedItem> RequisitionedItems { get; set; } = new List<RequisitionedItem>();
 }
