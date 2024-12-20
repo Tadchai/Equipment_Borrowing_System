@@ -8,12 +8,15 @@ namespace api.ViewModels
 {
     public class CreateEmployeeRequest
     {
-
-
+        public string FullName { get; set; }
+    }
+    public class UpdateEmployeeRequest
+    {
         public string FullName { get; set; }
     }
     public class GetByIdResponse{
         public int Id { get; set;}
         public string FullName { get; set; }
     }
+
 }

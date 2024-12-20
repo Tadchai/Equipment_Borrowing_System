@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace api.Controllers
 {
-    [Route("api/employee")]
+    [Route("employee")]
     [ApiController]
     public class EmployeeController : ControllerBase
     {
@@ -22,9 +22,15 @@ namespace api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var Employees = await _context.Employees.ToListAsync();
+            var employees = await _context.Employees.ToListAsync();
 
-            return new JsonResult(Employees);
+            var data = employees.Select(e => new GetByIdResponse
+            {
+                Id = e.EmployeeId,
+                FullName = e.Name
+            }).ToList();
+
+            return new JsonResult(data);
         }
 
         [HttpGet("{id}")]
@@ -36,43 +42,97 @@ namespace api.Controllers
             {
                 return NotFound();
             }
-            var data = new GetByIdResponse();
-            data.Id = employee.EmployeeId;
-            data.FullName = employee.Name;
+            var data = new GetByIdResponse
+            {
+                Id = employee.EmployeeId,
+                FullName = employee.Name
+            };
             return Ok(data);
         }
 
-        // [HttpPost]
-        // public async Task<IActionResult> Create([FromBody] CreateEmployeeRequest input)
-        // {
-        //     var Models = new Employee();
-        //     Models.Name = input.FullName;
-
-        //     await _context.Employees.AddAsync(Models);
-        //     await _context.SaveChangesAsync();
-        //     return CreatedAtAction(nameof(GetById), new { id = input.EmployeeId }, input);
-        // }//
-
-        [HttpPut]
-        [Route("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] Employee employee)
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] CreateEmployeeRequest input)
         {
-            var employeeModel = await _context.Employees.FirstOrDefaultAsync(x => x.EmployeeId == id);
-            if (employeeModel == null)
+            if (string.IsNullOrEmpty(input.FullName))
             {
-                return NotFound();
+                return BadRequest("FullName is required.");
             }
-            employeeModel.Name = employee.Name;
+            var AnyName = await _context.Employees.AnyAsync(e => e.Name == input.FullName);
+            if (AnyName)
+            {
+                return Conflict("Name already exists!!");
+            }
 
-            await _context.SaveChangesAsync();
+            using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    var employee = new Employee
+                    {
+                        Name = input.FullName,
+                        CreateDate = DateTime.Now
+                    };
 
-            return Ok(employeeModel);
+                    await _context.Employees.AddAsync(employee);
+                    await _context.SaveChangesAsync();
 
+                    await transaction.CommitAsync();
+
+                    var data = new GetByIdResponse
+                    {
+                        Id = employee.EmployeeId,
+                        FullName = employee.Name
+                    };
+
+                    return CreatedAtAction(nameof(GetById), new { id = employee.EmployeeId }, data);
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    return StatusCode(500, $"An error occurred: {ex.Message}");
+                }
+            }
         }
 
-        [HttpDelete]
-        [Route("{id}")]
-        public async Task<IActionResult> Delete([FromRoute] int id)
+        [HttpPost]
+        [Route("update/{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateEmployeeRequest updateRequest)
+        {
+            var employee = await _context.Employees.FirstOrDefaultAsync(e => e.EmployeeId == id);
+            if (employee == null)
+            {
+                return NotFound("Employee not found.");
+            }
+            using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    employee.Name = updateRequest.FullName;
+                    employee.UpdateDate = DateTime.Now;
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    var data = new GetByIdResponse
+                    {
+                        Id = employee.EmployeeId,
+                        FullName = employee.Name
+                    };
+
+                    return Ok(data);
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    return StatusCode(500, $"An error occurred: {ex.Message}");
+                }
+            }
+        }
+
+
+        [HttpPost]
+        [Route("delete/{id}")]
+        public async Task<IActionResult> Delete(int id)
         {
             var employeeModel = await _context.Employees.FirstOrDefaultAsync(x => x.EmployeeId == id);
 
@@ -80,14 +140,28 @@ namespace api.Controllers
             {
                 return NotFound();
             }
-            _context.Employees.Remove(employeeModel);
-            await _context.SaveChangesAsync();
-            return NoContent();
+            using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    _context.Employees.Remove(employeeModel);
+                    await _context.SaveChangesAsync();
+
+                    await transaction.CommitAsync();
+
+                    return NoContent();
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    return StatusCode(500, $"An error occurred: {ex.Message}");
+                }
+            }
         }
 
         [HttpGet]
         [Route("search/{name}")]
-        public async Task<IActionResult> Search([FromRoute] string name)
+        public async Task<IActionResult> Search(string name)
         {
             var employee = _context.Employees.AsQueryable();
             if (!string.IsNullOrWhiteSpace(name))
@@ -95,7 +169,14 @@ namespace api.Controllers
                 employee = employee.Where(x => x.Name.Contains(name));
             }
             await employee.ToListAsync();
-            return Ok(employee);
+            
+            var data = employee.Select(e => new GetByIdResponse
+            {
+                Id = e.EmployeeId,
+                FullName = e.Name
+            }).ToList();
+
+            return Ok(data);
         }
     }
 }
