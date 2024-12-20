@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Item</title>
+</head>
+<body>
+    <div>
+        <!-- add Item -->
+        <div>
+            <h3>Add Item</h3>
+            <form id="createForm">
+                <div>
+                    <label for="employeeName">Name</label>
+                    <input type="text" id="itemName" required>
+                </div>
+                <button type="submit">Add Item</button>
+            </form>
+        </div>
+
+        <!-- search Item -->
+        <div class="mb-4">
+            <h3>Search Item</h3>
+            <input type="text" id="searchName" placeholder="Search by name">
+            <button id="searchBtn">Search</button>
+        </div>
+
+        <!-- all Item -->
+        <div class="item-list">
+            <h3>All Item</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                    </tr>
+                </thead>
+                <tbody id="itemList"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="assets/item.js"></script>
+</body>
+</html>
