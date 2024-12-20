@@ -24,7 +24,7 @@ namespace api.Controllers
         {
             var employees = await _context.Employees.ToListAsync();
 
-            var data = employees.Select(e => new GetByIdResponse
+            var data = employees.Select(e => new GetByIdEmployeeResponse
             {
                 Id = e.EmployeeId,
                 FullName = e.Name
@@ -34,15 +34,15 @@ namespace api.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById([FromRoute] int id)
+        public async Task<IActionResult> GetById(int id)
         {
-            var employee = await _context.Employees.FindAsync(id);
+            var employee = await _context.Employees.FirstOrDefaultAsync(e => e.EmployeeId == id);
 
             if (employee == null)
             {
                 return NotFound();
             }
-            var data = new GetByIdResponse
+            var data = new GetByIdEmployeeResponse
             {
                 Id = employee.EmployeeId,
                 FullName = employee.Name
@@ -78,7 +78,7 @@ namespace api.Controllers
 
                     await transaction.CommitAsync();
 
-                    var data = new GetByIdResponse
+                    var data = new GetByIdEmployeeResponse
                     {
                         Id = employee.EmployeeId,
                         FullName = employee.Name
@@ -113,7 +113,7 @@ namespace api.Controllers
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    var data = new GetByIdResponse
+                    var data = new GetByIdEmployeeResponse
                     {
                         Id = employee.EmployeeId,
                         FullName = employee.Name
@@ -168,13 +168,14 @@ namespace api.Controllers
             {
                 employee = employee.Where(x => x.Name.Contains(name));
             }
-            await employee.ToListAsync();
-            
-            var data = employee.Select(e => new GetByIdResponse
-            {
-                Id = e.EmployeeId,
-                FullName = e.Name
-            }).ToList();
+
+            var data = await employee
+                .Select(e => new GetByIdEmployeeResponse
+                {
+                    Id = e.EmployeeId,
+                    FullName = e.Name
+                })
+                .ToListAsync();
 
             return Ok(data);
         }

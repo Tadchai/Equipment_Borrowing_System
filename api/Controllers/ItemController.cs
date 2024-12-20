@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using api.Models;
+using api.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace api.Controllers
 {
-    [Route("api/item")]
+    [Route("item")]
     [ApiController]
     public class ItemController : ControllerBase
     {
@@ -23,48 +24,111 @@ namespace api.Controllers
         {
             var Items = await _context.ItemCategories.ToListAsync();
 
-            return Ok(Items);
+            var data = Items.Select(i => new GetByIdItemResponse
+            {
+                Id = i.ItemCategoryId,
+                Name = i.Name,
+            }).ToList();
+
+            return Ok(data);
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById([FromRoute] int id)
+        public async Task<IActionResult> GetById(int id)
         {
-            var Items = await _context.ItemCategories.FindAsync(id);
-
-            if (Items == null)
+            var item = await _context.ItemCategories.FirstOrDefaultAsync(i => i.ItemCategoryId == id);
+            if (item == null)
             {
                 return NotFound();
             }
-            return Ok(Items);
+            var data = new GetByIdItemResponse
+            {
+                Id = item.ItemCategoryId,
+                Name = item.Name
+            };
+            return Ok(data);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] ItemCategory Items)
+        public async Task<IActionResult> Create([FromBody] CreateItemRequest input)
         {
-            await _context.ItemCategories.AddAsync(Items);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetById), new { id = Items.ItemCategoryId }, Items);
-        }
-
-        [HttpPut]
-        [Route("{id}")]
-        public async Task<IActionResult> Update([FromRoute] int id, [FromBody] ItemCategory Items)
-        {
-            var ItemModel = await _context.ItemCategories.FirstOrDefaultAsync(x => x.ItemCategoryId == id);
-            if (ItemModel == null)
+            if (string.IsNullOrEmpty(input.Name))
             {
-                return NotFound();
+                return BadRequest("ItemName is required");
             }
-            ItemModel.Name = Items.Name;
+            var AnyName = await _context.ItemCategories.AnyAsync(i => i.Name == input.Name);
+            if (AnyName)
+            {
+                return Conflict("Name already exists!!");
+            }
+            using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    var item = new ItemCategory
+                    {
+                        Name = input.Name,
+                        CreateDate = DateTime.Now
+                    };
 
-            await _context.SaveChangesAsync();
+                    await _context.ItemCategories.AddAsync(item);
+                    await _context.SaveChangesAsync();
 
-            return Ok(ItemModel);
+                    await transaction.CommitAsync();
 
+                    var data = new GetByIdItemResponse
+                    {
+                        Id = item.ItemCategoryId,
+                        Name = item.Name
+                    };
+
+                    return CreatedAtAction(nameof(GetById), new { id = item.ItemCategoryId }, data);
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    return StatusCode(500, $"An error occurred: {ex.Message}");
+                }
+            }
         }
 
-        [HttpDelete]
-        [Route("{id}")]
+        [HttpPost]
+        [Route("update/{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateItemRequest Items)
+        {
+            var item = await _context.ItemCategories.FirstOrDefaultAsync(x => x.ItemCategoryId == id);
+            if (item == null)
+            {
+                return NotFound("Item not found");
+            }
+            using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    item.Name = Items.Name;
+                    item.UpdateDate = DateTime.Now;
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    var data = new GetByIdItemResponse
+                    {
+                        Id = item.ItemCategoryId,
+                        Name = item.Name
+                    };
+
+                    return Ok(data);
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    return StatusCode(500, $"An error occurred: {ex.Message}");
+                }
+            }
+        }
+
+        [HttpPost]
+        [Route("delete/{id}")]
         public async Task<IActionResult> Delete([FromRoute] int id)
         {
             var ItemModel = await _context.ItemCategories.FirstOrDefaultAsync(x => x.ItemCategoryId == id);
@@ -73,22 +137,45 @@ namespace api.Controllers
             {
                 return NotFound();
             }
-            _context.ItemCategories.Remove(ItemModel);
-            await _context.SaveChangesAsync();
-            return NoContent();
+            using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    _context.ItemCategories.Remove(ItemModel);
+                    await _context.SaveChangesAsync();
+
+                    await transaction.CommitAsync();
+
+                    return NoContent();
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    return StatusCode(500, $"An error occurred: {ex.Message}");
+                }
+            }
         }
 
         [HttpGet]
         [Route("search/{itemname}")]
         public async Task<IActionResult> Search([FromRoute] string itemname)
         {
-            var Item = _context.ItemCategories.AsQueryable();
+            var itemsQuery = _context.ItemCategories.AsQueryable();
+
             if (!string.IsNullOrWhiteSpace(itemname))
             {
-                Item = Item.Where(x => x.Name.Contains(itemname));
+                itemsQuery = itemsQuery.Where(x => x.Name.Contains(itemname));
             }
-            await Item.ToListAsync();
-            return Ok(Item);
+
+            var data = await itemsQuery
+                .Select(i => new GetByIdItemResponse
+                {
+                    Id = i.ItemCategoryId,
+                    Name = i.Name,
+                })
+                .ToListAsync();
+
+            return Ok(data);
         }
     }
 }

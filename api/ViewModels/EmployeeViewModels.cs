@@ -14,7 +14,7 @@ namespace api.ViewModels
     {
         public string FullName { get; set; }
     }
-    public class GetByIdResponse{
+    public class GetByIdEmployeeResponse{
         public int Id { get; set;}
         public string FullName { get; set; }
     }
