@@ -7,7 +7,7 @@ public partial class ItemClassification
 {
     public int ItemClassificationId { get; set; }
 
-    public byte[] Name { get; set; } = null!;
+    public string Name { get; set; } = null!;
 
     public int ItemCategoryId { get; set; }
 

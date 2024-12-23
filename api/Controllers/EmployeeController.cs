@@ -9,8 +9,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace api.Controllers
 {
-    [Route("employee")]
     [ApiController]
+    [Route("[controller]/[action]")]
     public class EmployeeController : ControllerBase
     {
         private readonly EquipmentBorrowingContext _context;
@@ -33,7 +33,7 @@ namespace api.Controllers
             return new JsonResult(data);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet]
         public async Task<IActionResult> GetById(int id)
         {
             var employee = await _context.Employees.FirstOrDefaultAsync(e => e.EmployeeId == id);
@@ -47,16 +47,12 @@ namespace api.Controllers
                 Id = employee.EmployeeId,
                 FullName = employee.Name
             };
-            return Ok(data);
+            return new JsonResult(data);
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateEmployeeRequest input)
         {
-            if (string.IsNullOrEmpty(input.FullName))
-            {
-                return BadRequest("FullName is required.");
-            }
             var AnyName = await _context.Employees.AnyAsync(e => e.Name == input.FullName);
             if (AnyName)
             {
@@ -84,7 +80,7 @@ namespace api.Controllers
                         FullName = employee.Name
                     };
 
-                    return CreatedAtAction(nameof(GetById), new { id = employee.EmployeeId }, data);
+                    return new JsonResult(data);
                 }
                 catch (Exception ex)
                 {
@@ -95,7 +91,6 @@ namespace api.Controllers
         }
 
         [HttpPost]
-        [Route("update/{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateEmployeeRequest updateRequest)
         {
             var employee = await _context.Employees.FirstOrDefaultAsync(e => e.EmployeeId == id);
@@ -119,7 +114,7 @@ namespace api.Controllers
                         FullName = employee.Name
                     };
 
-                    return Ok(data);
+                    return new JsonResult(data);
                 }
                 catch (Exception ex)
                 {
@@ -131,12 +126,11 @@ namespace api.Controllers
 
 
         [HttpPost]
-        [Route("delete/{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var employeeModel = await _context.Employees.FirstOrDefaultAsync(x => x.EmployeeId == id);
+            var employee = await _context.Employees.FirstOrDefaultAsync(x => x.EmployeeId == id);
 
-            if (employeeModel == null)
+            if (employee == null)
             {
                 return NotFound();
             }
@@ -144,7 +138,7 @@ namespace api.Controllers
             {
                 try
                 {
-                    _context.Employees.Remove(employeeModel);
+                    _context.Employees.Remove(employee);
                     await _context.SaveChangesAsync();
 
                     await transaction.CommitAsync();
@@ -160,7 +154,6 @@ namespace api.Controllers
         }
 
         [HttpGet]
-        [Route("search/{name}")]
         public async Task<IActionResult> Search(string name)
         {
             var employee = _context.Employees.AsQueryable();
@@ -168,16 +161,13 @@ namespace api.Controllers
             {
                 employee = employee.Where(x => x.Name.Contains(name));
             }
+            var data = await employee.Select(e => new GetByIdEmployeeResponse
+            {
+                Id = e.EmployeeId,
+                FullName = e.Name
+            }).ToListAsync();
 
-            var data = await employee
-                .Select(e => new GetByIdEmployeeResponse
-                {
-                    Id = e.EmployeeId,
-                    FullName = e.Name
-                })
-                .ToListAsync();
-
-            return Ok(data);
+            return new JsonResult(data);
         }
     }
 }
