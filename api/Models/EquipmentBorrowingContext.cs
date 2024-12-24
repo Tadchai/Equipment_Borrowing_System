@@ -135,7 +135,7 @@ public partial class EquipmentBorrowingContext : DbContext
         {
             entity.HasKey(e => e.RequisitionId).HasName("PRIMARY");
 
-            entity.ToTable(" requisitionedItems");
+            entity.ToTable("requisitionedItems");
 
             entity.HasIndex(e => e.EmployeeId, "FK_ requisitionedItems_employeeId");
 
@@ -164,6 +164,7 @@ public partial class EquipmentBorrowingContext : DbContext
 
             entity.HasOne(d => d.ItemInstance).WithMany(p => p.RequisitionedItems)
                 .HasForeignKey(d => d.ItemInstanceId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ requisitionedItems_itemInstanceId");
         });
 

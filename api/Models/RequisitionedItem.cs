@@ -9,7 +9,7 @@ public partial class RequisitionedItem
 
     public int EmployeeId { get; set; }
 
-    public int? ItemInstanceId { get; set; }
+    public int ItemInstanceId { get; set; }
 
     public DateTime RequisitonDate { get; set; }
 
@@ -21,7 +21,7 @@ public partial class RequisitionedItem
 
     public virtual Employee Employee { get; set; } = null!;
 
-    public virtual ItemInstance? ItemInstance { get; set; }
+    public virtual ItemInstance ItemInstance { get; set; } = null!;
 
     public virtual ICollection<ItemInstance> ItemInstances { get; set; } = new List<ItemInstance>();
 }

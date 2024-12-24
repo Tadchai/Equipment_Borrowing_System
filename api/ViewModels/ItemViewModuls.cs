@@ -24,23 +24,23 @@ namespace api.ViewModels
     //UpdateItemRequest
     public class UpdateItemRequest
     {
-        public List<UpdateCategoryResponse> CategoryResponse { get; set; }
-        public List<UpdateClassificationResponse> ClassificationResponse { get; set; }
-        public List<UpdateInstanceResponse> InstanceResponse { get; set; }
+        public List<UpdateCategoryRequest> CategoryRequest { get; set; }
+        public List<UpdateClassificationRequest> ClassificationRequest { get; set; }
+        public List<UpdateInstanceRequest> InstanceRequest { get; set; }
     }
-    public class UpdateCategoryResponse
+    public class UpdateCategoryRequest
     {
-        public int CategoryId { get; set;}
+        public int CategoryId { get; set; }
         public string CategoryName { get; set; }
     }
-    public class UpdateClassificationResponse
+    public class UpdateClassificationRequest
     {
-        public int ClassificationId { get; set;}
+        public int ClassificationId { get; set; }
         public string ClassificationName { get; set; }
     }
-    public class UpdateInstanceResponse
+    public class UpdateInstanceRequest
     {
-        public int InstanceId { get; set;}
+        public int InstanceId { get; set; }
         public string AssetId { get; set; }
     }
 
@@ -56,7 +56,7 @@ namespace api.ViewModels
         public string Name { get; set; }
         public List<ClassificationResponse> ItemClassifications { get; set; }
     }
-    
+
     public class ClassificationResponse
     {
         public int Id { get; set; }
@@ -78,5 +78,16 @@ namespace api.ViewModels
         public List<int> InstanceId { get; set; }
     }
 
+    public class PaginationItemResponse
+    {
+        public int ItemCategoryId { get; set; }
+        public string Name { get; set; }
+    }
+
+    public class SearchResponse
+    {
+        public int ItemCategoryId { get; set; }
+        public string Name { get; set; }
+    }
 
 }
