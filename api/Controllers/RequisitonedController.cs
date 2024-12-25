@@ -23,19 +23,19 @@ namespace api.Controllers
         [HttpPost]
         public async Task<IActionResult> Borrow([FromBody] BorrowRequest input)
         {
-            var IdEmployee = await _context.Employees.FirstOrDefaultAsync(e => e.EmployeeId == input.EmployeeId);
-            if (IdEmployee == null)
+            var IdEmployee = await _context.Employees.AnyAsync(e => e.EmployeeId == input.EmployeeId);
+            if (!IdEmployee)
             {
-                return Conflict(new MessageResponse { Message = "don't have Employee" , StatusCode = 200});
+                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = 404 });
             }
-            var IdInstance = await _context.ItemInstances.FirstOrDefaultAsync(i => i.ItemInstanceId == input.ItemInstanceId);
+            var IdInstance = await _context.ItemInstances.SingleOrDefaultAsync(i => i.ItemInstanceId == input.ItemInstanceId);
             if (IdInstance == null)
             {
-                return Conflict(new MessageResponse { Message = "don't have ItemInstance" , StatusCode = 200});
+                return new JsonResult(new MessageResponse { Message = "ItemInstances not found.", StatusCode = 404 });
             }
             if (IdInstance.RequisitionId != null)
             {
-                return Conflict(new MessageResponse { Message = "ItemInstance has borrowed." , StatusCode = 200});
+                return new JsonResult(new MessageResponse { Message = "ItemInstance has borrowed.", StatusCode = 409 });
             }
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
@@ -50,22 +50,20 @@ namespace api.Controllers
                         CreateDate = DateTime.Now
                     };
 
-
                     await _context.RequisitionedItems.AddAsync(requisition);
                     await _context.SaveChangesAsync();
 
                     IdInstance.RequisitionId = requisition.RequisitionId;
-                    _context.ItemInstances.Update(IdInstance);
                     await _context.SaveChangesAsync();
 
                     await transaction.CommitAsync();
 
-                    return Ok(new MessageResponse { Message = "Requisition Item successfully!" , StatusCode = 200});
+                    return new JsonResult(new MessageResponse { Message = "Requisition Item successfully!", StatusCode = 200 });
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return StatusCode(500, $"An error occurred: {ex.Message}");
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
                 }
             }
         }
@@ -73,16 +71,10 @@ namespace api.Controllers
         [HttpPost]
         public async Task<IActionResult> Return([FromBody] ReturnRequest input)
         {
-            var employee = await _context.Employees.FirstOrDefaultAsync(e => e.EmployeeId == input.EmployeeId);
-            if (employee == null)
-            {
-                return Conflict(new MessageResponse { Message = "don't have Employees" , StatusCode = 200});
-            }
-
-            var requisition = await _context.RequisitionedItems.FirstOrDefaultAsync(r => r.RequisitionId == input.RequisitionId);
+            var requisition = await _context.RequisitionedItems.SingleOrDefaultAsync(r => r.RequisitionId == input.RequisitionId);
             if (requisition == null)
             {
-                return Conflict(new MessageResponse { Message = "don't have Requisition", StatusCode = 200});
+                return new JsonResult(new MessageResponse { Message = "Requisition not found.", StatusCode = 404 });
             }
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
@@ -90,12 +82,11 @@ namespace api.Controllers
                 try
                 {
                     requisition.ReturnDate = DateTime.Now;
-                    requisition.UpdateDate = DateTime.Now;
 
-                    var itemInstance = await _context.ItemInstances.FirstOrDefaultAsync(i => i.RequisitionId == input.RequisitionId);
+                    var itemInstance = await _context.ItemInstances.SingleOrDefaultAsync(i => i.RequisitionId == input.RequisitionId);
                     if (itemInstance == null)
                     {
-                        return Conflict(new MessageResponse { Message = "don't have ItemInstance", StatusCode = 200});
+                        return new JsonResult(new MessageResponse { Message = "ItemInstance not found.", StatusCode = 404 });
                     }
 
                     itemInstance.RequisitionId = null;
@@ -104,23 +95,14 @@ namespace api.Controllers
 
                     await transaction.CommitAsync();
 
-                    return Ok(new MessageResponse { Message = "Return Item successfully!", StatusCode = 200});
+                    return new JsonResult(new MessageResponse { Message = "Return Item successfully!", StatusCode = 200 });
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return StatusCode(500, $"An error occurred: {ex.Message}");
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
                 }
             }
         }
-
-        // [HttpGet]
-        // public async Task<IActionResult> Get()
-        // {
-        //     var requisition = await _context.
-        // }
-
-
-
     }
 }

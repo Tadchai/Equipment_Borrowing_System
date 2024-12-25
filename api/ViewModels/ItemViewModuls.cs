@@ -9,12 +9,12 @@ namespace api.ViewModels
     public class CreateItemRequest
     {
         public string Name { get; set; }
-        public List<ItemClassificationRequest> ItemClassifications { get; set; }
+        public List<ItemClassificationRequest>? ItemClassifications { get; set; }
     }
     public class ItemClassificationRequest
     {
         public string Name { get; set; }
-        public List<ItemInstanceRequest> ItemInstances { get; set; }
+        public List<ItemInstanceRequest>? ItemInstances { get; set; }
     }
     public class ItemInstanceRequest
     {
@@ -24,9 +24,9 @@ namespace api.ViewModels
     //UpdateItemRequest
     public class UpdateItemRequest
     {
-        public List<UpdateCategoryRequest> CategoryRequest { get; set; }
-        public List<UpdateClassificationRequest> ClassificationRequest { get; set; }
-        public List<UpdateInstanceRequest> InstanceRequest { get; set; }
+        public List<UpdateCategoryRequest>? CategoryRequest { get; set; }
+        public List<UpdateClassificationRequest>? ClassificationRequest { get; set; }
+        public List<UpdateInstanceRequest>? InstanceRequest { get; set; }
     }
     public class UpdateCategoryRequest
     {
@@ -54,28 +54,30 @@ namespace api.ViewModels
     {
         public int Id { get; set; }
         public string Name { get; set; }
-        public List<ClassificationResponse> ItemClassifications { get; set; }
+        public List<ClassificationResponse>? ItemClassifications { get; set; }
     }
 
     public class ClassificationResponse
     {
         public int Id { get; set; }
         public string Name { get; set; }
-        public List<InstanceResponse> ItemInstances { get; set; }
+        public List<InstanceResponse>? ItemInstances { get; set; }
     }
 
     public class InstanceResponse
     {
         public int Id { get; set; }
         public string AssetId { get; set; }
+        public int? RequisitionEmployeeId { get; set; } = null;
+        public string? RequisitionEmployeeName { get; set;} = null;
     }
 
     //DeleteRequest
     public class DeleteItemRequest
     {
-        public List<int> CategoryId { get; set; }
-        public List<int> ClassificationId { get; set; }
-        public List<int> InstanceId { get; set; }
+        public List<int>? CategoryId { get; set; }
+        public List<int>? ClassificationId { get; set; }
+        public List<int>? InstanceId { get; set; }
     }
 
     public class PaginationItemResponse
@@ -89,5 +91,25 @@ namespace api.ViewModels
         public int ItemCategoryId { get; set; }
         public string Name { get; set; }
     }
+     public class SearchItemRequest
+    {
+        public string? Name { get; set; }
+        public int Page { get; set; } 
+        public int PageSize { get; set;} 
+    }
+    public class SearchItemResponse
+    {
+        public List<PaginationItemResponse> Data { get; set; }
+        public int PageIndex { get; set; }
+        public int PageSize { get; set; }
+        public int RowCount { get; set; }
+    }
+    public class FreeItemResponse
+    {
+        public string AssetId {get; set; }
+        public string ClassificationName { get; set; }
+        public int ItemInstanceId {get; set; }
+    }
+    
 
 }

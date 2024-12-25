@@ -25,7 +25,6 @@ namespace api.ViewModels
 
     public class ReturnRequest
     {
-        public int EmployeeId { get; set; }
         public int RequisitionId { get; set; }
     }
 }

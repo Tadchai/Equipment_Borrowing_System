@@ -20,47 +20,31 @@ namespace api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
-        {
-            var employees = await _context.Employees.ToListAsync();
-
-            var data = employees.Select(e => new GetByIdEmployeeResponse
-            {
-                Id = e.EmployeeId,
-                FullName = e.Name
-            }).ToList();
-
-            return new JsonResult(data);
-        }//ใส่page
-
-        [HttpGet]
         public async Task<IActionResult> GetById([FromQuery] int id)
         {
             var employee = await _context.Employees.SingleOrDefaultAsync(e => e.EmployeeId == id);
-
             if (employee == null)
             {
-                return NotFound(new MessageResponse { Message = "Employee not found.", StatusCode = 404 });
+                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = 404 });
             }
 
-            var data = await (from r in _context.RequisitionedItems
-                              join i in _context.ItemInstances on r.ItemInstanceId equals i.ItemInstanceId
-                              join ic in _context.ItemClassifications on i.ItemClassificationId equals ic.ItemClassificationId
+            var data = await (from ri in _context.RequisitionedItems
+                              join ii in _context.ItemInstances on ri.ItemInstanceId equals ii.ItemInstanceId
+                              join ic in _context.ItemClassifications on ii.ItemClassificationId equals ic.ItemClassificationId
                               join cat in _context.ItemCategories on ic.ItemCategoryId equals cat.ItemCategoryId
-                              where r.EmployeeId == id
-                              select new RequisitionedItemResponse
-                              {
-                                  AssetId = i.AssetId,
+                              where ri.EmployeeId == id && ri.ReturnDate == null
+                              select new RequisitionedItemResponse {
+                                  AssetId = ii.AssetId,
                                   ItemCategoryId = cat.ItemCategoryId,
                                   ItemCategoryName = cat.Name,
                                   ItemClassificationId = ic.ItemClassificationId,
                                   ItemClassificationName = ic.Name,
-                                  InstanceId = i.ItemInstanceId,
-                                  RequisitonDate = r.RequisitonDate,
-                                  requisitionId = r.RequisitionId
+                                  InstanceId = ii.ItemInstanceId,
+                                  RequisitonDate = ri.RequisitonDate,
+                                  requisitionId = ri.RequisitionId
                               }).ToListAsync();
 
-            return new JsonResult(new
+            return new JsonResult(new GetByIdEmployeeResponse
             {
                 EmployeeId = employee.EmployeeId,
                 FullName = employee.Name,
@@ -74,7 +58,7 @@ namespace api.Controllers
             var AnyName = await _context.Employees.AnyAsync(e => e.Name == input.FullName);
             if (AnyName)
             {
-                return Conflict(new MessageResponse { Message = "Items deleted successfully.", StatusCode = 200 });
+                return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = 409 });
             }
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
@@ -92,66 +76,65 @@ namespace api.Controllers
 
                     await transaction.CommitAsync();
 
-                    var data = new GetByIdEmployeeResponse
-                    {
-                        Id = employee.EmployeeId,
-                        FullName = employee.Name
-                    };
-
-                    return Ok(new MessageResponse { Message = "Items deleted successfully.", StatusCode = 200 });
+                    return new JsonResult(new MessageResponse { Message = "Employee Created successfully.", StatusCode = 201 });
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return StatusCode(500, $"An error occurred: {ex.Message}");
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
                 }
             }
         }
 
         [HttpPost]
-        public async Task<IActionResult> Update([FromBody] UpdateEmployeeRequest updateRequest)
+        public async Task<IActionResult> Update([FromBody] UpdateEmployeeRequest input)
         {
-            var employee = await _context.Employees.FirstOrDefaultAsync(e => e.EmployeeId == updateRequest.Id);
+            var employee = await _context.Employees.SingleOrDefaultAsync(e => e.EmployeeId == input.Id);
             if (employee == null)
             {
-                return NotFound("Employee not found.");
+                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = 404 });
             }
+            var AnyName = await _context.Employees.AnyAsync(e => e.Name == input.FullName);
+            if (AnyName)
+            {
+                return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = 409 });
+            }
+
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
                 {
-                    employee.Name = updateRequest.FullName;
+                    employee.Name = input.FullName;
                     employee.UpdateDate = DateTime.Now;
 
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    var data = new GetByIdEmployeeResponse
-                    {
-                        Id = employee.EmployeeId,
-                        FullName = employee.Name
-                    };
-
-                    return Ok(new MessageResponse { Message = "Items deleted successfully.", StatusCode = 200 });
+                    return new JsonResult(new MessageResponse { Message = "Employee Updated successfully.", StatusCode = 200 });
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return StatusCode(500, $"An error occurred: {ex.Message}");
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
                 }
             }
         }
 
-
         [HttpPost]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete([FromQuery] int id)
         {
-            var employee = await _context.Employees.FirstOrDefaultAsync(x => x.EmployeeId == id);
-
+            var employee = await _context.Employees.SingleOrDefaultAsync(e => e.EmployeeId == id);
             if (employee == null)
             {
-                return NotFound(new MessageResponse { Message = "Items deleted successfully.", StatusCode = 200 });
-            }//เช็คการยืมหนังสือ
+                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = 404 });
+            }
+
+            var requisition = await _context.RequisitionedItems.AnyAsync(e => e.EmployeeId == id && e.ReturnDate == null);
+            if (requisition)
+            {
+                return new JsonResult(new MessageResponse { Message = "Employee is currently borrowing", StatusCode = 400 });
+            }
+
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
@@ -161,58 +144,49 @@ namespace api.Controllers
 
                     await transaction.CommitAsync();
 
-                    return Ok(new { message = "Employee deleted successfully." });
+                    return new JsonResult(new MessageResponse { Message = "Employee deleted successfully.", StatusCode = 200 });
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return StatusCode(500, $"An error occurred: {ex.Message}");
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
                 }
             }
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetPage(int page = 0, int pageSize = 10)
+        [HttpPost]
+        public async Task<IActionResult> Search([FromBody]SearchEmployeeRequest input)
         {
-            int skip = page * pageSize;
-            int totalItems = await _context.Employees.CountAsync();
-            var paginatedItems = await _context.Employees.Skip(skip).Take(pageSize).ToListAsync();
+            int skip = input.Page* input.PageSize;
+            List<Employee> employee;
+
+            if (input.Name == null)
+            {
+                employee = await _context.Employees.ToListAsync();
+            }
+            else
+            {
+                employee = await _context.Employees.Where(e => e.Name.Contains(input.Name)).ToListAsync();
+            }
+
+            int totalItems = employee.Count();
+            var paginatedItems = employee.Skip(skip).Take(input.PageSize).ToList();
+
             var data = paginatedItems.Select(i => new GetPaginatedEmployee
             {
                 EmployeeId = i.EmployeeId,
                 Name = i.Name
             }).ToList();
 
-            var response = new
+            var response = new GetSearchEmployee
             {
                 Data = data,
-                pageIndex = page,
-                pageSize = pageSize,
-                rowCount = totalItems,
-
+                PageIndex = input.Page,
+                PageSize = input.PageSize,
+                RowCount = totalItems,
             };
-            return new JsonResult(response); //page searchรวมกัน
-        }
 
-        [HttpGet]
-        public async Task<IActionResult> Search(string? name)
-        {
-            List<Employee> employee;
-            if (name == null)
-            {
-                employee = await _context.Employees.ToListAsync();
-            }
-            else
-            {
-                employee = await _context.Employees.Where(e => e.Name.Contains(name)).ToListAsync();
-            }
-            var data = employee.Select(e => new GetByIdEmployeeResponse
-            {
-                Id = e.EmployeeId,
-                FullName = e.Name
-            }).ToList();
-
-            return new JsonResult(data);
+            return new JsonResult(response);
         }
     }
 }
