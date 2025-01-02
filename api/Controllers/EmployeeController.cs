@@ -33,7 +33,8 @@ namespace api.Controllers
                               join ic in _context.ItemClassifications on ii.ItemClassificationId equals ic.ItemClassificationId
                               join cat in _context.ItemCategories on ic.ItemCategoryId equals cat.ItemCategoryId
                               where ri.EmployeeId == id && ri.ReturnDate == null
-                              select new RequisitionedItemResponse {
+                              select new RequisitionedItemResponse
+                              {
                                   AssetId = ii.AssetId,
                                   ItemCategoryId = cat.ItemCategoryId,
                                   ItemCategoryName = cat.Name,
@@ -89,16 +90,18 @@ namespace api.Controllers
         [HttpPost]
         public async Task<IActionResult> Update([FromBody] UpdateEmployeeRequest input)
         {
-            var employee = await _context.Employees.SingleOrDefaultAsync(e => e.EmployeeId == input.Id);
-            if (employee == null)
-            {
-                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = 404 });
-            }
             var AnyName = await _context.Employees.AnyAsync(e => e.Name == input.FullName);
             if (AnyName)
             {
                 return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = 409 });
             }
+
+            var employee = await _context.Employees.SingleOrDefaultAsync(e => e.EmployeeId == input.Id);
+            if (employee == null)
+            {
+                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = 404 });
+            }
+            
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
@@ -134,6 +137,11 @@ namespace api.Controllers
             {
                 return new JsonResult(new MessageResponse { Message = "Employee is currently borrowing", StatusCode = 400 });
             }
+            var hasrequisition = await _context.RequisitionedItems.AnyAsync(e => e.EmployeeId == id);
+            if (hasrequisition)
+            {
+                return new JsonResult(new MessageResponse { Message = "Employee has already borrowed item, so it cannot be deleted.", StatusCode = 400 });
+            }
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
@@ -155,9 +163,9 @@ namespace api.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Search([FromBody]SearchEmployeeRequest input)
+        public async Task<IActionResult> Search([FromBody] SearchEmployeeRequest input)
         {
-            int skip = input.Page* input.PageSize;
+            int skip = input.Page * input.PageSize;
             List<Employee> employee;
 
             if (input.Name == null)

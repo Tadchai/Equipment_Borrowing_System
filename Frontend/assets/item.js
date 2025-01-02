@@ -1,53 +1,84 @@
-const apiBaseUrl = 'http://localhost:5143/api/item'; // เปลี่ยน URL ตาม backend ของคุณ
+const apiBaseUrl = "http://localhost:5143/Item";
+const itemTableBody = document.getElementById("itemTableBody");
+const searchText = document.getElementById("searchText");
+const searchButton = document.getElementById("searchButton");
+const pageNumber = document.getElementById("pageNumber");
+const pageSize = document.getElementById("pageSize");
+const totalRows = document.getElementById("totalRows");
 
-// Fetch all Items
-async function fetchItems() {
-    const response = await fetch(apiBaseUrl);
-    const Items = await response.json();
-    renderItems(Items);
-}
+let currentPage = 1;
 
-// Add new Items
-document.getElementById('createForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = document.getElementById('ItemName').value;
+async function fetchItems()
+{
+    const input = {
+        Name: searchText.value || null,
+        Page: currentPage - 1,
+        PageSize: parseInt(pageSize.value),
+    };
 
-    const response = await fetch(apiBaseUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
-    });
+    try
+    {
+        const response = await fetch(`${apiBaseUrl}/Search`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(input),
+        });
 
-    if (response.ok) {
-        alert('Item added successfully');
-        document.getElementById('createForm').reset();
-        fetchItems();
-    } else {
-        alert('Error adding Item');
+        if (!response.ok) throw new Error("Error fetching items");
+
+        const data = await response.json();
+        renderItems(data);
+    } catch (error)
+    {
+        console.error(error);
+        alert("Failed to fetch items");
     }
-});
-
-// Search Items by name
-document.getElementById('searchBtn').addEventListener('click', async () => {
-    const name = document.getElementById('searchName').value;
-
-    const response = await fetch(`${apiBaseUrl}/search/${name}`);
-    const items = await response.json();
-    renderItems(items);
-});
-
-// Render item list
-function renderItems(items) {
-    const list = document.getElementById('itemList');
-    list.innerHTML = '';
-    items.forEach((item) => {
-        const row = `
-            <tr>
-                <td>${item.name}</td>
-            </tr>
-        `;
-        list.insertAdjacentHTML('beforeend', row);
-    });
 }
 
-fetchItems();
+function renderItems(response)
+{
+    itemTableBody.innerHTML = "";
+
+    response.data.forEach((item) =>
+    {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+                    <td><a href="/Frontend/itemdetail.html?id=${item.itemCategoryId}">${item.name}</a></td>
+                `;
+        itemTableBody.appendChild(row);
+    });
+
+    updatePagination(response);
+}
+
+function updatePagination(response)
+{
+    totalRows.textContent = `Total Rows: ${response.rowCount}`;
+    const totalPages = Math.ceil(response.rowCount / parseInt(pageSize.value));
+
+    pageNumber.innerHTML = "";
+    for (let i = 1; i <= totalPages; i++)
+    {
+        const option = document.createElement("option");
+        option.value = i;
+        option.textContent = i;
+        if (i === currentPage) option.selected = true;
+        pageNumber.appendChild(option);
+    }
+}
+
+searchButton.addEventListener("click", fetchItems);
+
+pageSize.addEventListener("change", () =>
+{
+    currentPage = 1;
+    fetchItems();
+});
+
+pageNumber.addEventListener("change", () =>
+{
+    currentPage = parseInt(pageNumber.value);
+    fetchItems();
+});
+
+window.onload = fetchItems;

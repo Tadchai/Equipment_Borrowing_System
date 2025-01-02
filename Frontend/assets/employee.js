@@ -1,53 +1,87 @@
-const apiBaseUrl = 'http://localhost:5143/api/employee'; // เปลี่ยน URL ตาม backend ของคุณ
+const apiBaseUrl = "http://localhost:5143/Employee";
+const employeeTableBody = document.getElementById("employeeTableBody");
+const searchText = document.getElementById("searchText");
+const searchButton = document.getElementById("searchButton");
+const pageNumber = document.getElementById("pageNumber");
+const pageSize = document.getElementById("pageSize");
+const totalRows = document.getElementById("totalRows");
+document.getElementById("addEmployee").addEventListener("click", function () {
+    window.location.href = "/Frontend/addemployee.html"; 
+});
 
-// Fetch all employees
-async function fetchEmployees() {
-    const response = await fetch(apiBaseUrl);
-    const employees = await response.json();
-    renderEmployees(employees);
-}
+let currentPage = 1;
 
-// Add new employee
-document.getElementById('createForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = document.getElementById('employeeName').value;
+async function fetchEmployees()
+{
+    const input = {
+        Name: searchText.value || null,
+        Page: currentPage - 1,
+        PageSize: parseInt(pageSize.value),
+    };
 
-    const response = await fetch(apiBaseUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
-    });
+    try
+    {
+        const response = await fetch(`${apiBaseUrl}/Search`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(input),
+        });
 
-    if (response.ok) {
-        alert('Employee added successfully');
-        document.getElementById('createForm').reset();
-        fetchEmployees();
-    } else {
-        alert('Error adding employee');
+        if (!response.ok) throw new Error("Error fetching employees");
+
+        const data = await response.json();
+        renderEmployees(data);
+    } catch (error)
+    {
+        console.error(error);
+        alert("Failed to fetch employees");
     }
-});
-
-// Search employees by name
-document.getElementById('searchBtn').addEventListener('click', async () => {
-    const name = document.getElementById('searchName').value;
-
-    const response = await fetch(`${apiBaseUrl}/search/${name}`);
-    const employees = await response.json();
-    renderEmployees(employees);
-});
-
-// Render employee list
-function renderEmployees(employees) {
-    const list = document.getElementById('employeeList');
-    list.innerHTML = '';
-    employees.forEach((employee) => {
-        const row = `
-            <tr>
-                <td>${employee.name}</td>
-            </tr>
-        `;
-        list.insertAdjacentHTML('beforeend', row);
-    });
 }
 
-fetchEmployees();
+function renderEmployees(response)
+{
+    employeeTableBody.innerHTML = "";
+
+    response.data.forEach((employee) =>
+    {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+                    <td><a href="/Frontend/employeedetail.html?id=${employee.employeeId}">${employee.name}</a></td>
+                `;
+        employeeTableBody.appendChild(row);
+    });
+
+    updatePagination(response);
+}
+
+function updatePagination(response)
+{
+    totalRows.textContent = `Total Rows: ${response.rowCount}`;
+    const totalPages = Math.ceil(response.rowCount / parseInt(pageSize.value));
+
+    pageNumber.innerHTML = "";
+    for (let i = 1; i <= totalPages; i++)
+    {
+        const option = document.createElement("option");
+        option.value = i;
+        option.textContent = i;
+        if (i === currentPage) option.selected = true;
+        pageNumber.appendChild(option);
+    }
+}
+
+searchButton.addEventListener("click", fetchEmployees);
+
+pageSize.addEventListener("change", () =>
+{
+    currentPage = 1;
+    fetchEmployees();
+});
+
+pageNumber.addEventListener("change", () =>
+{
+    currentPage = parseInt(pageNumber.value);
+    fetchEmployees();
+});
+
+window.onload = fetchEmployees;

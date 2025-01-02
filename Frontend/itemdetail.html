@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Item Detail</title>
+  <style>
+    table, th, td {
+      border: 1px solid black;
+      border-collapse: collapse;
+      padding: 8px;
+    }
+    th, td {
+      text-align: left;
+    }
+    .classification-box {
+      border: 1px solid black;
+      padding: 10px;
+      margin-bottom: 20px;
+    }
+    .classification-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="itemDetail"></div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const itemCategoryId = urlParams.get('id');
+
+    async function fetchItemDetail() {
+      try {
+        const response = await fetch(`http://localhost:5143/Item/GetById?id=${itemCategoryId}`);
+        const data = await response.json();
+
+        if (!response.ok || !data) {
+          document.getElementById('itemDetail').innerHTML = `<p>Error: ${data.message || 'Failed to load item details.'}</p>`;
+          return;
+        }
+
+        let html = `<h2>Item Category</h2>`;
+        html += `<p>Name: ${data.name}</p>`;
+
+        html += `<h3>Item Classifications</h3>`;
+        data.itemClassifications.forEach(classification => {
+          html += `<div class="classification-box">`;
+          html += `<div class="classification-title">Name: ${classification.name}</div>`;
+
+          html += `<h4>Item Instances</h4>`;
+          if (classification.itemInstances.length > 0) {
+            html += `<table>
+              <thead>
+                <tr>
+                  <th>Asset ID</th>
+                  <th>Requisition Employee Name</th>
+                </tr>
+              </thead>
+              <tbody>`;
+            classification.itemInstances.forEach(instance => {
+              html += `<tr>
+                <td>${instance.assetId}</td>
+                <td>${instance.requisitionEmployeeName || '-'}</td>
+              </tr>`;
+            });
+            html += `</tbody></table>`;
+          } else {
+            html += `<p>No instances available.</p>`;
+          }
+
+          html += `</div>`; 
+        });
+
+        document.getElementById('itemDetail').innerHTML = html;
+      } catch (error) {
+        console.error('Error fetching item detail:', error);
+        document.getElementById('itemDetail').innerHTML = `<p>An error occurred while fetching item details.</p>`;
+      }
+    }
+
+    fetchItemDetail();
+  </script>
+</body>
+</html>

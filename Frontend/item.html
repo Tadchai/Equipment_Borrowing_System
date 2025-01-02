@@ -4,40 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Item</title>
+    <style>
+        table, th, td {
+            border: 1px solid black;
+        }
+    </style>
 </head>
 <body>
     <div>
-        <!-- add Item -->
-        <div>
-            <h3>Add Item</h3>
-            <form id="createForm">
-                <div>
-                    <label for="employeeName">Name</label>
-                    <input type="text" id="itemName" required>
-                </div>
-                <button type="submit">Add Item</button>
-            </form>
-        </div>
+        <label for="searchText">Search Text</label>
+        <input type="text" id="searchText">
+        <button id="searchButton">Search</button><br>
+        <button id="addItem">Add Item</button>
+    </div>
 
-        <!-- search Item -->
-        <div class="mb-4">
-            <h3>Search Item</h3>
-            <input type="text" id="searchName" placeholder="Search by name">
-            <button id="searchBtn">Search</button>
-        </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+            </tr>
+        </thead>
+        <tbody id="itemTableBody">
+            
+        </tbody>
+    </table>
 
-        <!-- all Item -->
-        <div class="item-list">
-            <h3>All Item</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                    </tr>
-                </thead>
-                <tbody id="itemList"></tbody>
-            </table>
-        </div>
+    <div>
+        <label for="pageNumber">Page Number</label>
+        <select id="pageNumber"></select>
+
+        <label for="pageSize">Page Size</label>
+        <select id="pageSize">
+            <option value="3">3</option>
+            <option value="7">7</option>
+            <option value="11">11</option>
+        </select>
+    </div>
+
+    <div>
+        <span id="totalRows">Total Rows: 0</span>
     </div>
 
     <script src="assets/item.js"></script>
