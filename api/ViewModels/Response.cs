@@ -7,6 +7,7 @@ namespace api.ViewModels
 {
     public class MessageResponse
     {
+        public int? Id { get; set;}
         public string Message { get; set; }
         public int StatusCode { get; set; }
     }
