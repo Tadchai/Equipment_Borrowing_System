@@ -6,6 +6,10 @@ const pageNumber = document.getElementById("pageNumber");
 const pageSize = document.getElementById("pageSize");
 const totalRows = document.getElementById("totalRows");
 
+document.getElementById('addItem').addEventListener('click', () => {
+    window.location.href = '/Frontend/itemcreate.html';
+  });
+
 let currentPage = 1;
 
 async function fetchItems()
