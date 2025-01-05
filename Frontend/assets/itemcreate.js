@@ -5,13 +5,15 @@ function addClassification() {
   classifications.push({ id: classificationId, instances: [] });
 
   const classificationDiv = document.createElement("div");
+  classificationDiv.className = "classification-container";
   classificationDiv.id = `classification-${classificationId}`;
   classificationDiv.innerHTML = `
     <label>Item Classification Name:</label>
     <input type="text" id="classificationName-${classificationId}" />
-    <button type="button" onclick="addInstance(${classificationId})">Add Instance</button>
+    <button type="button" onclick="removeClassification(${classificationId})">Delete Classification</button><br><br>
+    <button type="button" onclick="addInstance(${classificationId})">Add Instance</button><br><br>
+    <h4>ItemInstance</h4>
     <div id="instances-${classificationId}"></div>
-    <button type="button" onclick="removeClassification(${classificationId})">Delete</button>
   `;
   document.getElementById("classifications").appendChild(classificationDiv);
 }
@@ -85,6 +87,3 @@ document.getElementById("itemForm").addEventListener("submit", async (e) => {
       alert("An error occurred while creating the item.");
     }
   });
-  
-  
-  

@@ -70,6 +70,7 @@ document.getElementById("deleteButton").addEventListener("click", async () => {
       window.location.href = "/Frontend/item.html";
     } else {
       alert(result.message || "Failed to delete the item.");
+      window.location.href = `/Frontend/itemdetail.html?id=${itemCategoryId}`;
     }
   } catch (error) {
     console.error("Error:", error);

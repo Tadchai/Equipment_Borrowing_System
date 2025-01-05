@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <style>
+        .classification-container {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .classification-container h4 {
+            margin: 0 0 10px;
+        }
+    </style>
 </head>
 <body>
     <form id="itemForm">
@@ -12,13 +22,11 @@
         <input type="text" id="categoryName" required />
       
         <h3>Item Classifications</h3>
-        <div id="classifications">
-
-        </div>
+        <div id="classifications"></div>
         <button type="button" onclick="addClassification()">Add Classification</button>
       
         <button type="submit">Save</button>
-      </form>      
+    </form>     
 </body>
 <script src="assets/itemcreate.js"></script>
 </html>
