@@ -134,18 +134,18 @@ namespace api.Controllers
             var requisition = await _context.RequisitionedItems.AnyAsync(e => e.EmployeeId == input.Id && e.ReturnDate == null);
             if (requisition)
             {
-                return new JsonResult(new MessageResponse { Message = "Employee is currently borrowing", StatusCode = HttpStatusCode.BadRequest });
-            }
-            var hasrequisition = await _context.RequisitionedItems.AnyAsync(e => e.EmployeeId == input.Id);
-            if (hasrequisition)
-            {
-                return new JsonResult(new MessageResponse { Message = "Employee has already borrowed item, so it cannot be deleted.", StatusCode = HttpStatusCode.BadRequest });
+                return new JsonResult(new MessageResponse { Message = "Employee is currently borrowing", StatusCode = HttpStatusCode.Conflict });
             }
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
                 {
+                    var employeerequistion = await _context.RequisitionedItems.SingleOrDefaultAsync(r => r.EmployeeId == input.Id);
+                    if (employeerequistion != null)
+                    {
+                        _context.RequisitionedItems.Remove(employeerequistion);
+                    }
                     _context.Employees.Remove(employee);
                     await _context.SaveChangesAsync();
 
@@ -178,7 +178,7 @@ namespace api.Controllers
             }
             else
             {
-                employee = _context.Employees.Where(e => EF.Functions.Collate(e.Name, "utf8mb4_bin").Contains(input.Name));
+                employee = _context.Employees.Where(e => e.Name.Contains(input.Name));
             }
 
             int totalItems = await employee.CountAsync();

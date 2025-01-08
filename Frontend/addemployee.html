@@ -1,38 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Create Employee</title>
-</head>
-<body>
+  </head>
+  <body>
     <form id="createEmployeeForm">
-        <label for="fullName">Full Name:</label>
-        <input type="text" id="fullName" name="fullName" required>
-        <button type="submit">Submit</button>
+      <label for="fullName">Full Name:</label>
+      <input type="text" id="fullName" name="fullName" required />
+      <button type="submit">Submit</button>
     </form>
     <div id="responseMessage"></div>
 
     <script>
-        document.getElementById('createEmployeeForm').addEventListener('submit', async function (event)
-        {
-            event.preventDefault();
-            const fullName = document.getElementById('fullName').value;
+      document
+        .getElementById("createEmployeeForm")
+        .addEventListener("submit", async function (event) {
+          event.preventDefault();
+          const fullName = document.getElementById("fullName").value;
 
-            const response = await fetch('http://localhost:5143/Employee/Create', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ FullName: fullName })
-            });
-
-            const result = await response.json();
-            if (response.ok) {
-                window.location.href = '/Frontend/employee.html';
+          const response = await fetch(
+            "http://localhost:5143/Employee/Create",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ FullName: fullName }),
             }
+          );
+
+          const result = await response.json();
+          if (result.statusCode === 201) {
+            window.location.href = "/Frontend/employee.html";
+          } else {
+            alert(result.message || "Something went wrong");
+          }
         });
     </script>
-</body>
-
+  </body>
 </html>
