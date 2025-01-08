@@ -53,7 +53,7 @@ namespace api.ViewModels
     {
         public string? Name { get; set; }
         public int Page { get; set; }
-        public int PageSize { get; set; }
+        public int PageSize { get; set; } 
     }
     public class SearchItemResponse
     {
@@ -71,6 +71,7 @@ namespace api.ViewModels
 
     public class ItemHistoryResponse
     {
+        public int EmployeeId { get; set; }
         public string EmployeeName { get; set; }
         public DateTime RequisitonDate { get; set; }
         public DateTime? ReturnDate { get; set; }
@@ -78,21 +79,26 @@ namespace api.ViewModels
 
     public class ItemUpdateRequest
     {
-        public int Id { get; set; } 
-        public string Name { get; set; } 
+        public int Id { get; set; }
+        public string Name { get; set; }
         public List<ItemClassificationUpdateRequest> ItemClassifications { get; set; } = new List<ItemClassificationUpdateRequest>();
     }
 
     public class ItemClassificationUpdateRequest
     {
-        public int? Id { get; set; } 
-        public string Name { get; set; } 
+        public int? Id { get; set; }
+        public string Name { get; set; }
         public List<ItemInstanceUpdateRequest> ItemInstances { get; set; } = new List<ItemInstanceUpdateRequest>();
     }
 
     public class ItemInstanceUpdateRequest
     {
-        public int? Id { get; set; } 
-        public string AssetId { get; set; } 
+        public int? Id { get; set; }
+        public string AssetId { get; set; }
+    }
+
+    public class ItemDeleteRequest
+    {
+        public int Id { get; set; }
     }
 }

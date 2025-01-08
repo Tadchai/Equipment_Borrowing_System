@@ -25,7 +25,7 @@ namespace api.Controllers
             var employee = await _context.Employees.SingleOrDefaultAsync(e => e.EmployeeId == id);
             if (employee == null)
             {
-                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = 404 });
+                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = HttpStatusCode.NotFound });
             }
 
             var data = await (from ri in _context.RequisitionedItems
@@ -59,7 +59,7 @@ namespace api.Controllers
             var AnyName = await _context.Employees.AnyAsync(e => e.Name == input.FullName);
             if (AnyName)
             {
-                return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = 409 });
+                return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = HttpStatusCode.Conflict });
             }
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
@@ -77,12 +77,12 @@ namespace api.Controllers
 
                     await transaction.CommitAsync();
 
-                    return new JsonResult(new MessageResponse { Message = "Employee Created successfully.", StatusCode = 201 });
+                    return new JsonResult(new MessageResponse { Message = "Employee Created successfully.", StatusCode = HttpStatusCode.Created });
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = HttpStatusCode.InternalServerError});
                 }
             }
         }
@@ -93,16 +93,15 @@ namespace api.Controllers
             var AnyName = await _context.Employees.AnyAsync(e => e.Name == input.FullName);
             if (AnyName)
             {
-                return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = 409 });
+                return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = HttpStatusCode.Conflict });
             }
 
             var employee = await _context.Employees.SingleOrDefaultAsync(e => e.EmployeeId == input.Id);
             if (employee == null)
             {
-                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = 404 });
+                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = HttpStatusCode.NotFound });
             }
             
-
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
@@ -113,34 +112,34 @@ namespace api.Controllers
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    return new JsonResult(new MessageResponse { Message = "Employee Updated successfully.", StatusCode = 200 });
+                    return new JsonResult(new MessageResponse { Message = "Employee Updated successfully.", StatusCode = HttpStatusCode.OK });
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = HttpStatusCode.InternalServerError });
                 }
             }
         }
 
         [HttpPost]
-        public async Task<IActionResult> Delete([FromQuery] int id)
+        public async Task<IActionResult> Delete([FromBody] DeleteEmployeeRequest input)
         {
-            var employee = await _context.Employees.SingleOrDefaultAsync(e => e.EmployeeId == id);
+            var employee = await _context.Employees.SingleOrDefaultAsync(e => e.EmployeeId == input.Id);
             if (employee == null)
             {
-                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = 404 });
+                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = HttpStatusCode.NotFound });
             }
 
-            var requisition = await _context.RequisitionedItems.AnyAsync(e => e.EmployeeId == id && e.ReturnDate == null);
+            var requisition = await _context.RequisitionedItems.AnyAsync(e => e.EmployeeId == input.Id && e.ReturnDate == null);
             if (requisition)
             {
-                return new JsonResult(new MessageResponse { Message = "Employee is currently borrowing", StatusCode = 400 });
+                return new JsonResult(new MessageResponse { Message = "Employee is currently borrowing", StatusCode = HttpStatusCode.BadRequest });
             }
-            var hasrequisition = await _context.RequisitionedItems.AnyAsync(e => e.EmployeeId == id);
+            var hasrequisition = await _context.RequisitionedItems.AnyAsync(e => e.EmployeeId == input.Id);
             if (hasrequisition)
             {
-                return new JsonResult(new MessageResponse { Message = "Employee has already borrowed item, so it cannot be deleted.", StatusCode = 400 });
+                return new JsonResult(new MessageResponse { Message = "Employee has already borrowed item, so it cannot be deleted.", StatusCode = HttpStatusCode.BadRequest });
             }
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
@@ -152,12 +151,12 @@ namespace api.Controllers
 
                     await transaction.CommitAsync();
 
-                    return new JsonResult(new MessageResponse { Message = "Employee deleted successfully.", StatusCode = 200 });
+                    return new JsonResult(new MessageResponse { Message = "Employee deleted successfully.", StatusCode = HttpStatusCode.OK });
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = HttpStatusCode.InternalServerError });
                 }
             }
         }
@@ -165,20 +164,25 @@ namespace api.Controllers
         [HttpPost]
         public async Task<IActionResult> Search([FromBody] SearchEmployeeRequest input)
         {
-            int skip = input.Page * input.PageSize;
-            List<Employee> employee;
-
-            if (input.Name == null)
+            if(input.PageSize <= 0)
             {
-                employee = await _context.Employees.ToListAsync();
+                return new JsonResult(new MessageResponse { Message = "PageSize must be greater than or equal to 0.", StatusCode = HttpStatusCode.BadRequest });
+            }
+
+            int skip = input.Page * input.PageSize;
+            IQueryable<Employee> employee;
+
+            if (string.IsNullOrWhiteSpace(input.Name))
+            {
+                employee = _context.Employees;
             }
             else
             {
-                employee = await _context.Employees.Where(e => e.Name.Contains(input.Name)).ToListAsync();
+                employee = _context.Employees.Where(e => EF.Functions.Collate(e.Name, "utf8mb4_bin").Contains(input.Name));
             }
 
-            int totalItems = employee.Count();
-            var paginatedItems = employee.Skip(skip).Take(input.PageSize).ToList();
+            int totalItems = await employee.CountAsync();
+            var paginatedItems = await employee.Skip(skip).Take(input.PageSize).ToListAsync();
 
             var data = paginatedItems.Select(i => new GetPaginatedEmployee
             {

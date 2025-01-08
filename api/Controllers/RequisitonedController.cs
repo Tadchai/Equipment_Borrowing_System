@@ -26,16 +26,16 @@ namespace api.Controllers
             var IdEmployee = await _context.Employees.AnyAsync(e => e.EmployeeId == input.EmployeeId);
             if (!IdEmployee)
             {
-                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = 404 });
+                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = HttpStatusCode.NotFound });
             }
             var IdInstance = await _context.ItemInstances.SingleOrDefaultAsync(i => i.ItemInstanceId == input.ItemInstanceId);
             if (IdInstance == null)
             {
-                return new JsonResult(new MessageResponse { Message = "ItemInstances not found.", StatusCode = 404 });
+                return new JsonResult(new MessageResponse { Message = "ItemInstances not found.", StatusCode = HttpStatusCode.NotFound });
             }
             if (IdInstance.RequisitionId != null)
             {
-                return new JsonResult(new MessageResponse { Message = "ItemInstance has borrowed.", StatusCode = 409 });
+                return new JsonResult(new MessageResponse { Message = "ItemInstance has borrowed.", StatusCode = HttpStatusCode.Conflict });
             }
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
@@ -58,12 +58,12 @@ namespace api.Controllers
 
                     await transaction.CommitAsync();
 
-                    return new JsonResult(new MessageResponse { Message = "Requisition Item successfully!", StatusCode = 200 });
+                    return new JsonResult(new MessageResponse { Message = "Requisition Item successfully!", StatusCode = HttpStatusCode.OK });
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = HttpStatusCode.InternalServerError });
                 }
             }
         }
@@ -74,33 +74,31 @@ namespace api.Controllers
             var requisition = await _context.RequisitionedItems.SingleOrDefaultAsync(r => r.RequisitionId == input.RequisitionId);
             if (requisition == null)
             {
-                return new JsonResult(new MessageResponse { Message = "Requisition not found.", StatusCode = 404 });
+                return new JsonResult(new MessageResponse { Message = "Requisition not found.", StatusCode = HttpStatusCode.NotFound });
             }
 
+            var itemInstance = await _context.ItemInstances.SingleOrDefaultAsync(i => i.RequisitionId == input.RequisitionId);
+            if (itemInstance == null)
+            {
+                return new JsonResult(new MessageResponse { Message = "ItemInstance not found.", StatusCode = HttpStatusCode.NotFound });
+            }
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
                 {
                     requisition.ReturnDate = DateTime.Now;
-
-                    var itemInstance = await _context.ItemInstances.SingleOrDefaultAsync(i => i.RequisitionId == input.RequisitionId);
-                    if (itemInstance == null)
-                    {
-                        return new JsonResult(new MessageResponse { Message = "ItemInstance not found.", StatusCode = 404 });
-                    }
-
                     itemInstance.RequisitionId = null;
 
                     await _context.SaveChangesAsync();
 
                     await transaction.CommitAsync();
 
-                    return new JsonResult(new MessageResponse { Message = "Return Item successfully!", StatusCode = 200 });
+                    return new JsonResult(new MessageResponse { Message = "Return Item successfully!", StatusCode = HttpStatusCode.OK });
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = HttpStatusCode.InternalServerError });
                 }
             }
         }

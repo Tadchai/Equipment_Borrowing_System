@@ -59,17 +59,23 @@ document.getElementById("deleteButton").addEventListener("click", async () => {
   if (!confirmation) return;
 
   try {
-    const response = await fetch(`http://localhost:5143/Item/Delete?id=${itemCategoryId}`, {
+    const payload = { Id: itemCategoryId };
+
+    const response = await fetch("http://localhost:5143/Item/Delete", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     });
 
     const result = await response.json();
 
-    if (response.ok) {
+    if (response.ok && result.statusCode === 200) {
       alert(result.message);
       window.location.href = "/Frontend/item.html";
     } else {
-      alert(result.message || "Failed to delete the item.");
+      alert(result.message);
       window.location.href = `/Frontend/itemdetail.html?id=${itemCategoryId}`;
     }
   } catch (error) {

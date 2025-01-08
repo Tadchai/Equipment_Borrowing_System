@@ -26,7 +26,7 @@ namespace api.Controllers
             var itemCategory = await _context.ItemCategories.SingleOrDefaultAsync(ic => ic.ItemCategoryId == id);
             if (itemCategory == null)
             {
-                return new JsonResult(new MessageResponse { Message = "ItemCategories not found.", StatusCode = 404 });
+                return new JsonResult(new MessageResponse { Message = "ItemCategories not found.", StatusCode = HttpStatusCode.NotFound });
             }
 
             var response = new GetByIdItemResponse
@@ -51,7 +51,7 @@ namespace api.Controllers
                 {
                     var requisition = await (from e in _context.Employees
                                              join r in _context.RequisitionedItems on e.EmployeeId equals r.EmployeeId
-                                             where r.ItemInstanceId == instance.ItemInstanceId && r.ReturnDate == null
+                                             where r.RequisitionId == instance.RequisitionId
                                              select new { EmployeeId = r.EmployeeId, EmployeeName = r.Employee.Name }).SingleOrDefaultAsync();
 
                     classificationResponse.ItemInstances.Add(new InstanceResponse
@@ -70,14 +70,14 @@ namespace api.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateItemRequest input)
         {
-            if (input.Name == string.Empty)
+            if (string.IsNullOrWhiteSpace(input.Name))
             {
-                return new JsonResult(new MessageResponse { Message = "Item Category Name is empty", StatusCode = 409 });
+                return new JsonResult(new MessageResponse { Message = "Item Category Name is null, empty, or whitespace.", StatusCode = HttpStatusCode.Conflict });
             }
             var AnyName = await _context.ItemCategories.AnyAsync(e => e.Name == input.Name);
             if (AnyName)
             {
-                return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = 409 });
+                return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = HttpStatusCode.Conflict });
             }
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
@@ -114,28 +114,131 @@ namespace api.Controllers
 
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
-                    return new JsonResult(new MessageResponse { Id = itemCategory.ItemCategoryId, Message = "Items Create successfully.", StatusCode = 201 });
+                    return new JsonResult(new MessageResponse { Id = itemCategory.ItemCategoryId, Message = "Items Create successfully.", StatusCode = HttpStatusCode.Created });
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = HttpStatusCode.InternalServerError });
                 }
             }
         }
         [HttpPost]
-        public async Task<JsonResult> Update([FromBody] ItemUpdateRequest input)
+        public async Task<IActionResult> Update([FromBody] ItemUpdateRequest input)
+        {
+            using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    var oldCategory = await _context.ItemCategories.SingleAsync(i => i.ItemCategoryId == input.Id);
+                    oldCategory.Name = input.Name;
+                    oldCategory.UpdateDate = DateTime.Now;
+                    foreach (var classification in input.ItemClassifications)
+                    {
+                        if (classification.Id == null)
+                        {
+                            var newDbClassification = new ItemClassification
+                            {
+                                ItemCategoryId = oldCategory.ItemCategoryId,
+                                Name = classification.Name,
+                                CreateDate = DateTime.Now,
+                                ItemInstances = new List<ItemInstance>()
+                            };
+                            await _context.ItemClassifications.AddAsync(newDbClassification);
+
+                            foreach (var newinstance in classification.ItemInstances)
+                            {
+                                var newDBInstance = new ItemInstance
+                                {
+                                    AssetId = newinstance.AssetId,
+                                    CreateDate = DateTime.Now
+                                };
+                                newDbClassification.ItemInstances.Add(newDBInstance);
+                            }
+                        }
+                        else
+                        {
+                            var oldClassification = await _context.ItemClassifications.SingleAsync(oc => oc.ItemClassificationId == classification.Id);
+                            oldClassification.Name = classification.Name;
+                            oldClassification.UpdateDate = DateTime.Now;
+
+                            foreach (var instance in classification.ItemInstances)
+                            {
+                                if (instance.Id == null)
+                                {
+                                    var newDbInstance = new ItemInstance
+                                    {
+                                        AssetId = instance.AssetId,
+                                        CreateDate = DateTime.Now
+                                    };
+                                    oldClassification.ItemInstances.Add(newDbInstance);
+                                }
+                                else
+                                {
+                                    var oldInstance = await _context.ItemInstances.SingleAsync(oi => oi.ItemInstanceId == instance.Id);
+                                    oldInstance.AssetId = instance.AssetId;
+                                    oldInstance.UpdateDate = DateTime.Now;
+                                }
+                            }
+                        }
+                    }
+
+                    var oldClassifications = await _context.ItemClassifications.Where(i => i.ItemCategoryId == input.Id).Select(classification => new ItemClassification
+                    {
+                        ItemClassificationId = classification.ItemClassificationId,
+                        ItemCategoryId = classification.ItemCategoryId,
+                        Name = classification.Name,
+                        UpdateDate = classification.UpdateDate,
+                        ItemInstances = _context.ItemInstances.Where(instance => instance.ItemClassificationId == classification.ItemClassificationId).ToList()
+                    }).ToListAsync();
+
+                    foreach (var dbClass in oldClassifications)
+                    {
+                        var clientClass = input.ItemClassifications.SingleOrDefault(c => c.Id == dbClass.ItemClassificationId);
+                        if (clientClass != null)
+                        {
+                            var missing = dbClass.ItemInstances.Where(dbInstance => !clientClass.ItemInstances.Any(clientInstance => clientInstance.Id == dbInstance.ItemInstanceId)).ToList();
+                            foreach (var remove in missing)
+                            {
+                                _context.ItemInstances.Remove(remove);
+                            }
+                        }
+                    }
+
+                    var missingClassifications = oldClassifications.Where(dbClass => !input.ItemClassifications.Any(clientClass => clientClass.Id == dbClass.ItemClassificationId)).ToList();
+                    foreach (var remove in missingClassifications)
+                    {
+                        _context.ItemClassifications.Remove(remove);
+                    }
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    return new JsonResult(new MessageResponse { Message = "Items update successfully.", StatusCode = HttpStatusCode.OK }); ;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = HttpStatusCode.InternalServerError });
+                }
+            }
+        }
+
+        [HttpPost]
+        public async Task<JsonResult> oldUpdate([FromBody] ItemUpdateRequest input)
         {
             var olditem = await _context.ItemCategories.SingleOrDefaultAsync(i => i.ItemCategoryId == input.Id);
             if (olditem == null)
             {
-                return new JsonResult(new MessageResponse { Message = "ItemCategories not found.", StatusCode = 404 });
+                return new JsonResult(new MessageResponse { Message = "ItemCategories not found.", StatusCode = HttpStatusCode.NotFound });
             }
+
             var anyname = await _context.ItemCategories.AnyAsync(i => i.Name == input.Name && i.ItemCategoryId != input.Id);
             if (anyname)
             {
-                return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = 409 });
+                return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = HttpStatusCode.Conflict });
             }
+
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
@@ -163,7 +266,6 @@ namespace api.Controllers
                             {
                                 var newDBInstance = new ItemInstance
                                 {
-                                    ItemClassificationId = newDBClassification.ItemClassificationId,
                                     AssetId = newinstance.AssetId,
                                     CreateDate = DateTime.Now
                                 };
@@ -179,7 +281,7 @@ namespace api.Controllers
 
                             foreach (var newinstance in newclassification.ItemInstances)
                             {
-                                var oldInstance = oldInstances.SingleOrDefault(i => i.ItemInstanceId == newinstance.Id);
+                                var oldInstance = oldInstances.SingleOrDefault(i => i.ItemInstanceId == newinstance.Id);//single
                                 if (oldInstance == null)
                                 {
                                     var newDBInstance = new ItemInstance
@@ -201,19 +303,19 @@ namespace api.Controllers
                                                    join n in newclassification.ItemInstances on o.ItemInstanceId equals n.Id into matched
                                                    from m in matched.DefaultIfEmpty()
                                                    where m == null
-                                                   select o).ToList();
+                                                   select o).ToList();//ไปดู      database use await async ทั้งหมด
+
                             foreach (var item in instancesRemove)
                             {
-                                var hasrequisition = await _context.RequisitionedItems.AnyAsync(ni => ni.ItemInstanceId == item.ItemInstanceId && ni.ReturnDate == null);
+                                var hasrequisition = await _context.RequisitionedItems.AnyAsync(ni => ni.ItemInstanceId == item.ItemInstanceId);
                                 if (hasrequisition)
                                 {
-                                    return new JsonResult(new MessageResponse { Message = "ItemInstance is currently borrowing, so it cannot be deleted.", StatusCode = 400 });
+                                    return new JsonResult(new MessageResponse { Message = "ItemInstance has already been borrowed and cannot be deleted.", StatusCode = HttpStatusCode.BadRequest });
                                 }
-                                _context.ItemInstances.Remove(item); 
+                                _context.ItemInstances.Remove(item);
                             }
                         }
                     }
-
                     var classificationsToRemove = (from o in oldClassifications
                                                    join n in input.ItemClassifications on o.ItemClassificationId equals n.Id into matched
                                                    from m in matched.DefaultIfEmpty()
@@ -225,10 +327,10 @@ namespace api.Controllers
 
                         foreach (var instance in instances)
                         {
-                            var hasrequisition = await _context.RequisitionedItems.AnyAsync(ni => ni.ItemInstanceId == instance.ItemInstanceId && ni.ReturnDate == null);
+                            var hasrequisition = await _context.RequisitionedItems.AnyAsync(ni => ni.ItemInstanceId == instance.ItemInstanceId);
                             if (hasrequisition)
                             {
-                                return new JsonResult(new MessageResponse { Message = "ItemInstance is currently borrowing, so it cannot be deleted.", StatusCode = 400 });
+                                return new JsonResult(new MessageResponse { Message = "ItemInstance has already been borrowed and cannot be deleted.", StatusCode = HttpStatusCode.BadRequest });
                             }
                             _context.ItemInstances.Remove(instance);
                         }
@@ -238,46 +340,59 @@ namespace api.Controllers
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    return new JsonResult(new MessageResponse { Message = "Items update successfully.", StatusCode = 200 }); ;
+                    return new JsonResult(new MessageResponse { Message = "Items update successfully.", StatusCode = HttpStatusCode.OK }); ;
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = HttpStatusCode.InternalServerError });
                 }
             }
         }
-        
+
         [HttpPost]
-        public async Task<IActionResult> Delete([FromQuery] int id)
+        public async Task<IActionResult> Delete([FromBody] ItemDeleteRequest input)
         {
-            var itemCategory = await _context.ItemCategories.SingleOrDefaultAsync(i => i.ItemCategoryId == id);
+            var itemCategory = await _context.ItemCategories.SingleOrDefaultAsync(i => i.ItemCategoryId == input.Id);
             if (itemCategory == null)
             {
-                return new JsonResult(new MessageResponse { Message = "ItemCategory not found.", StatusCode = 404 });
-            }
-
-            var hasclassification = await _context.ItemClassifications.AnyAsync(i => i.ItemCategoryId == id);
-            if (hasclassification)
-            {
-                return new JsonResult(new MessageResponse { Message = "ItemCategory has ItemClassifications, so it cannot be deleted.", StatusCode = 400 });
+                return new JsonResult(new MessageResponse { Message = "ItemCategory not found.", StatusCode = HttpStatusCode.NotFound });
             }
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
                 {
+                    var hasclassification = await _context.ItemClassifications.Where(i => i.ItemCategoryId == input.Id).ToListAsync();
+                    foreach (var classification in hasclassification)
+                    {
+                        var instances = await _context.ItemInstances.Where(i => i.ItemClassificationId == classification.ItemClassificationId).ToListAsync();
+                        foreach (var instance in instances)
+                        {
+                            var requisitions = await _context.RequisitionedItems.Where(i => i.ItemInstanceId == instance.ItemInstanceId).ToListAsync();
+                            foreach (var requisition in requisitions)
+                            {
+                                if (requisition.ReturnDate == null)
+                                {
+                                    return new JsonResult(new MessageResponse { Message = "ItemInstance has not been returned and cannot be deleted.", StatusCode = HttpStatusCode.BadRequest });
+                                }
+                                _context.RequisitionedItems.Remove(requisition);
+                            }
+                            _context.ItemInstances.Remove(instance);
+                        }
+                        _context.ItemClassifications.Remove(classification);
+                    }
                     _context.ItemCategories.Remove(itemCategory);
                     await _context.SaveChangesAsync();
 
                     await transaction.CommitAsync();
 
-                    return new JsonResult(new MessageResponse { Message = "ItemCategory deleted successfully.", StatusCode = 200 });
+                    return new JsonResult(new MessageResponse { Message = "ItemCategory deleted successfully.", StatusCode = HttpStatusCode.OK });
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = 500 });
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = HttpStatusCode.InternalServerError });
                 }
             }
         }
@@ -285,20 +400,25 @@ namespace api.Controllers
         [HttpPost]
         public async Task<IActionResult> Search([FromBody] SearchItemRequest input)
         {
-            int skip = input.Page * input.PageSize;
-            List<ItemCategory> Items;
-
-            if (input.Name == null)
+            if (input.PageSize <= 0)
             {
-                Items = await _context.ItemCategories.ToListAsync();
+                return new JsonResult(new MessageResponse { Message = "PageSize must be greater than or equal to 0.", StatusCode = HttpStatusCode.BadRequest });
+            }
+
+            int skip = input.Page * input.PageSize;
+            IQueryable<ItemCategory> Items;
+
+            if (string.IsNullOrWhiteSpace(input.Name))
+            {
+                Items = _context.ItemCategories;
             }
             else
             {
-                Items = await _context.ItemCategories.Where(e => e.Name.Contains(input.Name)).ToListAsync();
+                Items = _context.ItemCategories.Where(e => EF.Functions.Collate(e.Name, "utf8mb4_bin").Contains(input.Name));
             }
 
-            int totalItems = Items.Count();
-            var paginatedItems = Items.Skip(skip).Take(input.PageSize).ToList();
+            int totalItems = await Items.CountAsync();
+            var paginatedItems = await Items.Skip(skip).Take(input.PageSize).ToListAsync();
 
             var data = paginatedItems.Select(i => new PaginationItemResponse
             {
@@ -336,15 +456,22 @@ namespace api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> History([FromQuery] int input)
+        public async Task<IActionResult> History([FromQuery] int id)
         {
+            var itemInstance = await _context.ItemInstances.AnyAsync(i => i.ItemInstanceId == id);
+            if (!itemInstance)
+            {
+                return new JsonResult(new MessageResponse { Message = "ItemInstance not found.", StatusCode = HttpStatusCode.NotFound });
+            }
+
             var history = await (from r in _context.RequisitionedItems
                                  join e in _context.Employees on r.EmployeeId equals e.EmployeeId
-                                 where r.ItemInstanceId == input
-                                 select new { Name = e.Name, RequisitionDate = r.RequisitonDate, ReturnDate = r.ReturnDate }).ToListAsync();
+                                 where r.ItemInstanceId == id
+                                 select new { Id = e.EmployeeId, Name = e.Name, RequisitionDate = r.RequisitonDate, ReturnDate = r.ReturnDate }).ToListAsync();
 
             var data = history.Select(h => new ItemHistoryResponse
             {
+                EmployeeId = h.Id,
                 EmployeeName = h.Name,
                 RequisitonDate = h.RequisitionDate,
                 ReturnDate = h.ReturnDate

@@ -39,5 +39,9 @@ namespace api.ViewModels
         public int Page { get; set; } 
         public int PageSize { get; set;} 
     }
+    public class DeleteEmployeeRequest
+    {
+        public int Id { get; set; }
+    }
 
 }
