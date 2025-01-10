@@ -48,8 +48,7 @@ public partial class EquipmentBorrowingContext : DbContext
                 .HasColumnName("createDate");
             entity.Property(e => e.Name)
                 .HasMaxLength(50)
-                .HasColumnName("name")
-                .UseCollation("utf8mb4_bin");
+                .HasColumnName("name");
             entity.Property(e => e.UpdateDate)
                 .HasColumnType("datetime")
                 .HasColumnName("updateDate");
@@ -67,8 +66,7 @@ public partial class EquipmentBorrowingContext : DbContext
                 .HasColumnName("createDate");
             entity.Property(e => e.Name)
                 .HasMaxLength(50)
-                .HasColumnName("name")
-                .UseCollation("utf8mb4_bin");
+                .HasColumnName("name");
             entity.Property(e => e.UpdateDate)
                 .HasColumnType("datetime")
                 .HasColumnName("updateDate");

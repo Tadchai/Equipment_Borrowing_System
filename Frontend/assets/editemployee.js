@@ -38,10 +38,10 @@ document.getElementById('editEmployeeForm').addEventListener('submit', async (e)
     const result = await response.json();
 
     if (response.ok) {
-      alert(result.Message || 'Employee updated successfully.');
+      alert(result.message || 'Employee updated successfully.');
       window.location.href = `employeeDetail.html?id=${employeeId}`; 
     } else {
-      alert(result.Message || 'Failed to update employee.');
+      alert(result.message || 'Failed to update employee.');
     }
   } catch (error) {
     console.error('Error updating employee:', error);

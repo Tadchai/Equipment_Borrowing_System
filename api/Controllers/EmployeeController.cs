@@ -22,42 +22,45 @@ namespace api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetById([FromQuery] int id)
         {
-            var employee = await _context.Employees.SingleOrDefaultAsync(e => e.EmployeeId == id);
-            if (employee == null)
+            try
             {
-                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = HttpStatusCode.NotFound });
+                var employee = await _context.Employees.SingleAsync(e => e.EmployeeId == id);
+
+                var data = await (from ri in _context.RequisitionedItems
+                                  join ii in _context.ItemInstances on ri.ItemInstanceId equals ii.ItemInstanceId
+                                  join ic in _context.ItemClassifications on ii.ItemClassificationId equals ic.ItemClassificationId
+                                  join cat in _context.ItemCategories on ic.ItemCategoryId equals cat.ItemCategoryId
+                                  where ri.EmployeeId == id && ri.ReturnDate == null
+                                  select new RequisitionedItemResponse
+                                  {
+                                      AssetId = ii.AssetId,
+                                      ItemCategoryId = cat.ItemCategoryId,
+                                      ItemCategoryName = cat.Name,
+                                      ItemClassificationId = ic.ItemClassificationId,
+                                      ItemClassificationName = ic.Name,
+                                      InstanceId = ii.ItemInstanceId,
+                                      RequisitonDate = ri.RequisitonDate,
+                                      requisitionId = ri.RequisitionId
+                                  }).ToListAsync();
+
+                return new JsonResult(new GetByIdEmployeeResponse
+                {
+                    EmployeeId = employee.EmployeeId,
+                    FullName = employee.Name,
+                    RequisitionedItems = data
+                });
             }
-
-            var data = await (from ri in _context.RequisitionedItems
-                              join ii in _context.ItemInstances on ri.ItemInstanceId equals ii.ItemInstanceId
-                              join ic in _context.ItemClassifications on ii.ItemClassificationId equals ic.ItemClassificationId
-                              join cat in _context.ItemCategories on ic.ItemCategoryId equals cat.ItemCategoryId
-                              where ri.EmployeeId == id && ri.ReturnDate == null
-                              select new RequisitionedItemResponse
-                              {
-                                  AssetId = ii.AssetId,
-                                  ItemCategoryId = cat.ItemCategoryId,
-                                  ItemCategoryName = cat.Name,
-                                  ItemClassificationId = ic.ItemClassificationId,
-                                  ItemClassificationName = ic.Name,
-                                  InstanceId = ii.ItemInstanceId,
-                                  RequisitonDate = ri.RequisitonDate,
-                                  requisitionId = ri.RequisitionId
-                              }).ToListAsync();
-
-            return new JsonResult(new GetByIdEmployeeResponse
+            catch (Exception ex)
             {
-                EmployeeId = employee.EmployeeId,
-                FullName = employee.Name,
-                RequisitionedItems = data
-            });
+                return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = HttpStatusCode.InternalServerError });
+            }
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateEmployeeRequest input)
         {
-            var AnyName = await _context.Employees.AnyAsync(e => e.Name == input.FullName);
-            if (AnyName)
+            var hasName = await _context.Employees.Where(e => EF.Functions.Collate(e.Name, "utf8mb4_bin") == input.FullName).AnyAsync();
+            if (hasName)
             {
                 return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = HttpStatusCode.Conflict });
             }
@@ -82,7 +85,7 @@ namespace api.Controllers
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = HttpStatusCode.InternalServerError});
+                    return new JsonResult(new MessageResponse { Message = $"An error occurred: {ex.Message}", StatusCode = HttpStatusCode.InternalServerError });
                 }
             }
         }
@@ -90,22 +93,17 @@ namespace api.Controllers
         [HttpPost]
         public async Task<IActionResult> Update([FromBody] UpdateEmployeeRequest input)
         {
-            var AnyName = await _context.Employees.AnyAsync(e => e.Name == input.FullName);
+            var AnyName = await _context.Employees.AnyAsync(e => EF.Functions.Collate(e.Name, "utf8mb4_bin") == input.FullName);
             if (AnyName)
             {
                 return new JsonResult(new MessageResponse { Message = "Name is already in use.", StatusCode = HttpStatusCode.Conflict });
             }
 
-            var employee = await _context.Employees.SingleOrDefaultAsync(e => e.EmployeeId == input.Id);
-            if (employee == null)
-            {
-                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = HttpStatusCode.NotFound });
-            }
-            
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
                 {
+                    var employee = await _context.Employees.SingleAsync(e => e.EmployeeId == input.Id);
                     employee.Name = input.FullName;
                     employee.UpdateDate = DateTime.Now;
 
@@ -125,12 +123,6 @@ namespace api.Controllers
         [HttpPost]
         public async Task<IActionResult> Delete([FromBody] DeleteEmployeeRequest input)
         {
-            var employee = await _context.Employees.SingleOrDefaultAsync(e => e.EmployeeId == input.Id);
-            if (employee == null)
-            {
-                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = HttpStatusCode.NotFound });
-            }
-
             var requisition = await _context.RequisitionedItems.AnyAsync(e => e.EmployeeId == input.Id && e.ReturnDate == null);
             if (requisition)
             {
@@ -141,6 +133,7 @@ namespace api.Controllers
             {
                 try
                 {
+                    var employee = await _context.Employees.SingleAsync(e => e.EmployeeId == input.Id);
                     var employeerequistion = await _context.RequisitionedItems.SingleOrDefaultAsync(r => r.EmployeeId == input.Id);
                     if (employeerequistion != null)
                     {
@@ -164,7 +157,7 @@ namespace api.Controllers
         [HttpPost]
         public async Task<IActionResult> Search([FromBody] SearchEmployeeRequest input)
         {
-            if(input.PageSize <= 0)
+            if (input.PageSize <= 0)
             {
                 return new JsonResult(new MessageResponse { Message = "PageSize must be greater than or equal to 0.", StatusCode = HttpStatusCode.BadRequest });
             }

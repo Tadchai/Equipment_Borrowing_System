@@ -23,25 +23,16 @@ namespace api.Controllers
         [HttpPost]
         public async Task<IActionResult> Borrow([FromBody] BorrowRequest input)
         {
-            var IdEmployee = await _context.Employees.AnyAsync(e => e.EmployeeId == input.EmployeeId);
-            if (!IdEmployee)
-            {
-                return new JsonResult(new MessageResponse { Message = "Employee not found.", StatusCode = HttpStatusCode.NotFound });
-            }
-            var IdInstance = await _context.ItemInstances.SingleOrDefaultAsync(i => i.ItemInstanceId == input.ItemInstanceId);
-            if (IdInstance == null)
-            {
-                return new JsonResult(new MessageResponse { Message = "ItemInstances not found.", StatusCode = HttpStatusCode.NotFound });
-            }
-            if (IdInstance.RequisitionId != null)
-            {
-                return new JsonResult(new MessageResponse { Message = "ItemInstance has borrowed.", StatusCode = HttpStatusCode.Conflict });
-            }
-
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
                 {
+                    var IdInstance = await _context.ItemInstances.SingleAsync(i => i.ItemInstanceId == input.ItemInstanceId);
+                    if (IdInstance.RequisitionId != null)
+                    {
+                        return new JsonResult(new MessageResponse { Message = "ItemInstance has borrowed.", StatusCode = HttpStatusCode.Conflict });
+                    }
+
                     var requisition = new RequisitionedItem
                     {
                         EmployeeId = input.EmployeeId,
@@ -71,26 +62,17 @@ namespace api.Controllers
         [HttpPost]
         public async Task<IActionResult> Return([FromBody] ReturnRequest input)
         {
-            var requisition = await _context.RequisitionedItems.SingleOrDefaultAsync(r => r.RequisitionId == input.RequisitionId);
-            if (requisition == null)
-            {
-                return new JsonResult(new MessageResponse { Message = "Requisition not found.", StatusCode = HttpStatusCode.NotFound });
-            }
-
-            var itemInstance = await _context.ItemInstances.SingleOrDefaultAsync(i => i.RequisitionId == input.RequisitionId);
-            if (itemInstance == null)
-            {
-                return new JsonResult(new MessageResponse { Message = "ItemInstance not found.", StatusCode = HttpStatusCode.NotFound });
-            }
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
                 {
+                    var requisition = await _context.RequisitionedItems.SingleAsync(r => r.RequisitionId == input.RequisitionId);
                     requisition.ReturnDate = DateTime.Now;
+
+                    var itemInstance = await _context.ItemInstances.SingleAsync(i => i.RequisitionId == input.RequisitionId);
                     itemInstance.RequisitionId = null;
 
                     await _context.SaveChangesAsync();
-
                     await transaction.CommitAsync();
 
                     return new JsonResult(new MessageResponse { Message = "Return Item successfully!", StatusCode = HttpStatusCode.OK });
